@@ -1,0 +1,25 @@
+# ── 构建产物 ────────────────────────────────────────────
+build/
+build-tsan/
+build-asan/
+cmake-build-*/
+
+# ── 编译中间产物 ────────────────────────────────────────
+*.o
+*.obj
+*.a
+*.so
+*.exe
+
+# ── 工具缓存与生成物 ────────────────────────────────────
+.cache/
+compile_commands.json
+.vscode/
+
+# ── 系统 ────────────────────────────────────────────────
+.DS_Store
+core.*
+
+# examples 下编译出来的可执行文件（无扩展名）
+examples/sp
+examples/spurious_wakeup
