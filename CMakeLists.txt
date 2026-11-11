@@ -22,6 +22,16 @@ if(ENABLE_TSAN)
     add_link_options(-fsanitize=thread)
 endif()
 
+# 两者同时开会得到一堆莫名其妙的链接错误 / 运行时崩溃。
+# 在配置阶段就拦下来，比让 CI 跑一半才失败友好得多。
+if(ENABLE_ASAN AND ENABLE_TSAN)
+    message(FATAL_ERROR
+        "ENABLE_ASAN 和 ENABLE_TSAN 不能同时开启。"
+        "请分成两个构建目录：\n"
+        "  cmake -B build-asan -G Ninja -DENABLE_ASAN=ON\n"
+        "  cmake -B build-tsan -G Ninja -DENABLE_TSAN=ON")
+endif()
+
 # ── 编译警告设置 ──────────────────────────────────────────────────
 add_library(project_warnings INTERFACE)
 if(MSVC)

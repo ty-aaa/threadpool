@@ -1,0 +1,65 @@
+# GitHub Actions —— 线程池的 CI 矩阵
+#
+# 为什么是【矩阵】而不是一次构建：
+#   ASan（内存错误）和 TSan（数据竞争）**不能同时开** —— 它们都要接管
+#   内存分配和线程库，混在一起会互相打架。所以必须拆成两个独立的构建配置。
+#
+# 这正是 Gate 0 第 3 条要的「CI 矩阵」：
+#     Debug + ASan    → 抓泄漏、越界、use-after-free
+#     Release + TSan  → 抓数据竞争、锁顺序问题
+#
+# ⚠️ Release 会定义 NDEBUG，但我们的测试用的是 GTest 断言
+#    （不是 <cassert> 的 assert），不受 NDEBUG 影响。
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: ${{ matrix.flag.name }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false        # 一个配置挂了，另一个继续跑完 —— 一次看到全部问题
+      matrix:
+        flag:
+          - name: "Debug + ASan"
+            build_type: Debug
+            asan: "ON"
+            tsan: "OFF"
+          - name: "Release + TSan"
+            build_type: Release
+            asan: "OFF"
+            tsan: "ON"
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装系统依赖
+        # GitHub 的 ubuntu-latest 没有预装 GoogleTest。
+        # 本地有（apt 装的）不代表干净机器上也有 —— 这正是 CI 要抓的差异。
+        run: sudo apt-get update && sudo apt-get install -y libgtest-dev
+
+      - name: 打印工具版本
+        run: |
+          cmake --version
+          ninja --version
+          c++ --version
+
+      - name: 配置
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=${{ matrix.flag.build_type }}
+          -DENABLE_ASAN=${{ matrix.flag.asan }}
+          -DENABLE_TSAN=${{ matrix.flag.tsan }}
+
+      - name: 构建
+        run: cmake --build build
+
+      - name: 测试
+        # --output-on-failure：只把失败的测试输出打出来
+        run: ctest --test-dir build --output-on-failure
